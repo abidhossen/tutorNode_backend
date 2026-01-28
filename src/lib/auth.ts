@@ -3,13 +3,9 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { prisma } from './prisma';
 import config from '../config';
 
-
-// Create a transporter using Ethereal test credentials.
-// For production, replace with your actual SMTP server details.
-
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
-    provider: 'postgresql', 
+    provider: 'postgresql',
   }),
   trustedOrigins: [config.appUrl!],
   user: {
@@ -26,6 +22,4 @@ export const auth = betterAuth({
     autoSignIn: false,
     requireEmailVerification: false,
   },
-
-  
 });
