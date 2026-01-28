@@ -1,0 +1,197 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+  TUTOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BLOCKED
+}
+
+model User {
+  id   String   @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  sessions      Session[]
+  accounts      Account[]
+  role UserRole @default(STUDENT)
+  status    UserStatus @default(ACTIVE)
+  isBanned  Boolean    @default(false)
+  banReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tutorProfile    TutorProfile?
+  studentBookings Booking[]     @relation("StudentBookings")
+  reviewsGiven    Review[]      @relation("StudentReviews")
+
+
+  @@index([role])
+  @@index([status])
+  @@map("user")
+  @@unique([email])
+}
+
+model Category {
+  id          String         @id @default(uuid())
+  title        String         @unique
+  subject     String?
+  classLevel  String?
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  tutors      TutorProfile[]
+
+  @@map("categories")
+}
+
+model TutorProfile {
+  id           String                  @id @default(uuid())
+  userId       String                  @unique
+  title        String?
+  bio          String?
+  hourlyRate   Int
+  currency     String                  @default("BDT")
+  isActive     Boolean                 @default(true)
+  isFeatured   Boolean                 @default(false)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories   Category[]
+  availability TutorAvailabilitySlot[]
+  bookings     Booking[]               @relation("BookingTutorProfile")
+  reviews      Review[]
+
+  @@index([hourlyRate])
+  @@index([isFeatured])
+  @@map("tutor_profiles")
+}
+
+model TutorAvailabilitySlot {
+  id             String             @id @default(uuid())
+  tutorProfileId String
+  startAt        DateTime
+  endAt          DateTime
+  status         AvailabilityStatus @default(AVAILABLE)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  tutorProfile   TutorProfile       @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  bookings       Booking[]          @relation("BookingAvailabilitySlot")
+
+  @@index([tutorProfileId, startAt])
+  @@map("tutor_availability_slots")
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  studentId          String
+  tutorProfileId     String
+  startAt            DateTime
+  endAt              DateTime
+  status             BookingStatus @default(PENDING)
+  notes              String?
+  availabilitySlotId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student          User                   @relation("StudentBookings", fields: [studentId], references: [id], onDelete: Restrict)
+  tutorProfile     TutorProfile           @relation("BookingTutorProfile", fields: [tutorProfileId], references: [id], onDelete: Restrict)
+  availabilitySlot TutorAvailabilitySlot? @relation("BookingAvailabilitySlot", fields: [availabilitySlotId], references: [id], onDelete: SetNull)
+  review           Review?
+
+  @@index([studentId, createdAt])
+  @@index([tutorProfileId, createdAt])
+  @@index([tutorProfileId, startAt])
+  @@map("bookings")
+}
+
+model Review {
+  id             String       @id @default(cuid())
+  bookingId      String       @unique
+  studentId      String
+  tutorProfileId String
+  rating         Int
+  comment        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  student        User         @relation("StudentReviews", fields: [studentId], references: [id], onDelete: Restrict)
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([tutorProfileId, createdAt])
+  @@map("reviews")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
